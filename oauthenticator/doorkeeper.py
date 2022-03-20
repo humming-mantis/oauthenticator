@@ -123,7 +123,7 @@ class DoorkeeperOAuthenticator(OAuthenticator):
 
         # memoize doorkeeper version for class lifetime
         if self.doorkeeper_version is None:
-            self.doorkeeper_version = await self._get_doorkeeper_version(access_token)
+            self.doorkeeper_version = [1,0 ]#await self._get_doorkeeper_version(access_token)
             self.member_api_variant = 'all/' if self.doorkeeper_version >= [12, 4] else ''
 
         # Determine who the logged in user is
@@ -135,15 +135,16 @@ class DoorkeeperOAuthenticator(OAuthenticator):
         )
         resp_json = await self.fetch(req, label="getting doorkeeper user")
 
-        username = resp_json["username"]
+        username = resp_json["name"]
         user_id = resp_json["id"]
+        user_email = resp_json["email"]
         # is_admin = resp_json.get("is_admin", False)
 
 
         if ( 1 == 1 ):
             return {
                 'name': username,
-                'email':email,
+                'email':user_email,
                 'auth_state': {'access_token': access_token, 'doorkeeper_user': resp_json},
             }
         else:
