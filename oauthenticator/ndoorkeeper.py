@@ -1,5 +1,5 @@
 """
-Custom Authenticator to use GitLab OAuth with JupyterHub
+Custom Authenticator to use Doorkeeper OAuth with JupyterHub
 """
 import os
 import warnings
@@ -30,16 +30,17 @@ class DoorkeeperOAuthenticator(OAuthenticator):
     # set scopes via config, e.g.
     # c.DoorkeeperOAuthenticator.scope = ['read_user']
 
+
     login_service = "Doorkeeper"
 
     client_id_env = 'DOORKEEPER_CLIENT_ID'
     client_secret_env = 'DOORKEEPER_CLIENT_SECRET'
 
-    doorkeeper_url = Unicode("http://localhost:3000", config=True)
+    doorkeeper_url = Unicode("https://doorkeeper.com", config=True)
 
     @default("doorkeeper_url")
     def _default_doorkeeper_url(self):
-        """get default gitlab url from env"""
+        """get default doorkeeper url from env"""
         doorkeeper_url = os.getenv('DOORKEEPER_URL')
         doorkeeper_host = os.getenv('DOORKEEPER_HOST')
 
@@ -60,9 +61,9 @@ class DoorkeeperOAuthenticator(OAuthenticator):
                     'Set DOORKEEPER_URL="{0}" instead.'.format(doorkeeper_host)
                 )
 
-        # default to gitlab.com
+        # default to doorkeeper.com
         if not doorkeeper_url:
-            doorkeeper_url = 'https://localhost:3000'
+            doorkeeper_url = 'https://localhost:5000'
 
         return doorkeeper_url
 
@@ -87,17 +88,16 @@ class DoorkeeperOAuthenticator(OAuthenticator):
         return "%s/oauth/access_token" % self.doorkeeper_url
 
 
-
     doorkeeper_version = None
 
     async def authenticate(self, handler, data=None):
         code = handler.get_argument("code")
 
-        # Exchange the OAuth code for a GitLab Access Token
+        # Exchange the OAuth code for a Doorkeeper Access Token
         #
-        # See: https://github.com/gitlabhq/gitlabhq/blob/HEAD/doc/api/oauth2.md
+        # See: https://github.com/doorkeeperhq/doorkeeperhq/blob/HEAD/doc/api/oauth2.md
 
-        # GitLab specifies a POST request yet requires URL parameters
+        # Doorkeeper specifies a POST request yet requires URL parameters
         params = dict(
             client_id=self.client_id,
             client_secret=self.client_secret,
@@ -121,9 +121,9 @@ class DoorkeeperOAuthenticator(OAuthenticator):
         resp_json = await self.fetch(req, label="getting access token")
         access_token = resp_json['access_token']
 
-        # memoize gitlab version for class lifetime
+        # memoize doorkeeper version for class lifetime
         if self.doorkeeper_version is None:
-            self.doorkeeper_version = [1,0]
+            self.doorkeeper_version = [1,0 ]#await self._get_doorkeeper_version(access_token)
             self.member_api_variant = 'all/' if self.doorkeeper_version >= [12, 4] else ''
 
         # Determine who the logged in user is
@@ -133,16 +133,18 @@ class DoorkeeperOAuthenticator(OAuthenticator):
             validate_cert=validate_server_cert,
             headers=_api_headers(access_token),
         )
-        resp_json = await self.fetch(req, label="getting gitlab user")
-        print(resp_json)
-        username = resp_json["email"].split("@")[0]
+        resp_json = await self.fetch(req, label="getting doorkeeper user")
+
+        username = resp_json["name"]
         user_id = resp_json["id"]
+        user_email = resp_json["email"]
         # is_admin = resp_json.get("is_admin", False)
 
 
-        if (1==1):
+        if ( 1 == 1 ):
             return {
                 'name': username,
+                'email':user_email,
                 'auth_state': {'access_token': access_token, 'doorkeeper_user': resp_json},
             }
         else:
